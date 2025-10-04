@@ -26,8 +26,29 @@ namespace BingusDebugger
                     sb.AppendLine($"<color=yellow>ASM: {Source.GetName().Name}</color>");
                     break;
                 case Plugin.ModInspectorMode.ASMInfo:
-                    sb.AppendLine($"Assembly: {Source.FullName}");
-                    sb.AppendLine($"\t@ {Source.Location}");
+                    StringBuilder types = new StringBuilder();
+
+                    int tPerLine = 4;
+                    string thisLine = "";
+
+                    for (int i = 0; i < Source.GetTypes().Length; i++)
+                    {
+                        if (i % tPerLine == 0 && i != 0)
+                        {
+                            types.AppendLine(thisLine);
+                            thisLine = "";
+                        } else
+                        {
+                            if (i == Source.GetTypes().Length - 1)
+                                thisLine += Source.GetTypes()[i].Name;
+                            else
+                                thisLine += Source.GetTypes()[i].Name + ", ";
+                        }
+                    }
+
+                    sb.AppendLine($"ASM: {Source.FullName}");
+                    sb.AppendLine($"Ver: {Source.GetName().Version}");
+                    sb.AppendLine($"Types: {types}");
                     break;
             }
 

@@ -102,7 +102,7 @@ namespace BingusDebugger
                     break;
             }
 
-            if (Log.Count > 10)
+            if (Log.Count > 8)
                 Log.RemoveAt(0);
         }
 
@@ -199,12 +199,12 @@ namespace BingusDebugger
                     else
                         lJoystickAxis = ControllerInputPoller.Primary2DAxis(lNode);
 
-                    if (lJoystickAxis.y > 0.9f && xInRange(lJoystickAxis.x))
+                    if ((lJoystickAxis.y > 0.9f && xInRange(lJoystickAxis.x)) && pausePageMoveUntil == 0)
                     {
                         pausePageMoveUntil = 30;
                         modinspMode = modinspMode.EnumNext();
                     }
-                    else if (lJoystickAxis.y < -0.9f && xInRange(lJoystickAxis.x))
+                    else if ((lJoystickAxis.y < -0.9f && xInRange(lJoystickAxis.x)) && pausePageMoveUntil == 0)
                     {
                         pausePageMoveUntil = 30;
                         modinspMode = modinspMode.EnumLast();
