@@ -102,7 +102,7 @@ namespace BingusDebugger
                     break;
             }
 
-            if (Log.Count > 15)
+            if (Log.Count > 10)
                 Log.RemoveAt(0);
         }
 

@@ -15,7 +15,7 @@ namespace BingusDebugger
         public string UpdateDebugPage(Plugin.ModInspectorMode page)
         {
             StringBuilder sb = new StringBuilder();
-            sb.AppendLine($"<color=aqua>======== MOD INSPECTOR ========</color>\n");
+            sb.AppendLine($"<color=blue>======== MOD INSPECTOR ========</color>\n");
 
             switch (page)
             {
@@ -31,7 +31,7 @@ namespace BingusDebugger
                     break;
             }
 
-            sb.AppendLine($"<color=aqua>\n= Y/B: CHANGE INSPECTED MOD =</color>\n");
+            sb.AppendLine($"<color=blue>\n= Y/B: CHANGE INSPECTED MOD =</color>\n");
 
             return sb.ToString();
         }
