@@ -9,6 +9,7 @@ namespace BingusDebugger
         public string Name;
         public string Version;
         public string GUID;
+        public string Types;
 
         public Assembly Source;
 
@@ -26,29 +27,37 @@ namespace BingusDebugger
                     sb.AppendLine($"<color=yellow>ASM: {Source.GetName().Name}</color>");
                     break;
                 case Plugin.ModInspectorMode.ASMInfo:
-                    StringBuilder types = new StringBuilder();
-
-                    int tPerLine = 4;
-                    string thisLine = "";
-
-                    for (int i = 0; i < Source.GetTypes().Length; i++)
+                    if (this.Types == null)
                     {
-                        if (i % tPerLine == 0 && i != 0)
+                        // this should fix the lag probably
+                        StringBuilder types = new StringBuilder();
+
+                        int tPerLine = 4;
+                        string thisLine = "";
+
+                        for (int i = 0; i < Source.GetTypes().Length; i++)
                         {
-                            types.AppendLine(thisLine);
-                            thisLine = "";
-                        } else
-                        {
-                            if (i == Source.GetTypes().Length - 1)
-                                thisLine += Source.GetTypes()[i].Name;
+                            if (i % tPerLine == 0 && i != 0)
+                            {
+                                types.AppendLine(thisLine);
+                                thisLine = "";
+                            }
                             else
-                                thisLine += Source.GetTypes()[i].Name + ", ";
+                            {
+                                if (i == Source.GetTypes().Length - 1)
+                                    thisLine += Source.GetTypes()[i].Name;
+                                else
+                                    thisLine += Source.GetTypes()[i].Name + ", ";
+                            }
                         }
+
+                        Types = types.ToString();
                     }
 
                     sb.AppendLine($"ASM: {Source.FullName}");
                     sb.AppendLine($"Ver: {Source.GetName().Version}");
-                    sb.AppendLine($"Types: {types}");
+                    sb.AppendLine($"Types: {this.Types}");
+
                     break;
             }
 

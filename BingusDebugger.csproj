@@ -27,6 +27,9 @@
 		<Reference Include="Photon3Unity3D">
 		  <HintPath>$(GameAssemblyPath)\Photon3Unity3D.dll</HintPath>
 		</Reference>
+		<Reference Include="PhotonRealtime">
+			<HintPath>$(GameAssemblyPath)\PhotonRealtime.dll</HintPath>
+		</Reference>
 		<Reference Include="PhotonUnityNetworking">
 		  <HintPath>$(GameAssemblyPath)\PhotonUnityNetworking.dll</HintPath>
 		</Reference>

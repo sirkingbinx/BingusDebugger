@@ -2,6 +2,7 @@
 using GorillaLocomotion;
 using GorillaNetworking;
 using HarmonyLib;
+using Photon.Pun;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -26,7 +27,8 @@ namespace BingusDebugger
         List<string> Log = new List<string>();
 
         public enum HUDDisplayType {
-            Default,
+            Lobby,
+            PlayerList,
             Log,
             ModInspector,
             VersionInfo,
@@ -115,7 +117,7 @@ namespace BingusDebugger
         private static bool Null(object obj) =>
             obj == null;
 
-        private HUDDisplayType display = HUDDisplayType.Default;
+        private HUDDisplayType display = HUDDisplayType.Lobby;
 
         private XRNode lNode = XRNode.LeftHand;
         private Vector2 lJoystickAxis = Vector2.zero;
@@ -159,7 +161,7 @@ namespace BingusDebugger
 
             switch (display)
             {
-                case HUDDisplayType.Default:
+                case HUDDisplayType.Lobby:
                     if (NetworkSystem.Instance.InRoom && NetworkSystem.Instance.SessionIsPrivate)
                         DebugText.Append($"PRIVATE<color=grey>:</color> {NetworkSystem.Instance.RoomName} <color=grey>({NetworkSystem.Instance.RoomPlayerCount}/10)</color>\n");
                     else if (NetworkSystem.Instance.InRoom)
@@ -171,6 +173,28 @@ namespace BingusDebugger
                     string FPS = $"{fpsF} </color=grey>fps</color>";
                     DebugText.Append($"{FPS} | {Speed}\n");
 
+                    break;
+                case HUDDisplayType.PlayerList:
+                    if (!PhotonNetwork.InRoom)
+                    {
+                        DebugText.AppendLine("<color=red>NOT CONNECTED TO A ROOM</color>");
+                    } else
+                    {
+                        int width = 30;
+                        int playersPerPage = 2;
+                        int players = 0;
+
+                        foreach (NetPlayer player in NetworkSystem.Instance.AllNetPlayers)
+                        {
+                            players++;
+                            if (player == NetworkSystem.Instance.LocalPlayer) continue;
+                            if (players % playersPerPage == 0 && players < NetworkSystem.Instance.RoomPlayerCount)
+                                DebugText.Append($"{PlayerList.MakeSpaces(PlayerList.GetPlayerString(player), width / 2)}  ");
+                            else
+                                DebugText.Append($"{PlayerList.MakeSpaces(PlayerList.GetPlayerString(player), width / 2)}\n");
+                        }
+                    }
+                    
                     break;
                 case HUDDisplayType.Log:
                     foreach (string log in Log)
@@ -222,9 +246,8 @@ namespace BingusDebugger
 
                     break;
                 default:
-                    display = HUDDisplayType.Default;
+                    display = HUDDisplayType.Lobby;
                     break;
-            
             }
 
             if (desync)
