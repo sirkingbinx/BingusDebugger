@@ -1,10 +1,12 @@
 ﻿using BepInEx;
+using BingusDebugger.AdvancedPages;
 using GorillaLocomotion;
 using GorillaNetworking;
 using HarmonyLib;
 using Photon.Pun;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using TMPro;
@@ -21,8 +23,8 @@ namespace BingusDebugger
         GameObject DebugCanvasTextObject = null;
         TMP_Text DebugCanvasText = null;
 
-        List<ModInfo> Mods = new List<ModInfo>();
-        ModInfo Selected = null;
+        List<ModInspector> Mods = new List<ModInspector>();
+        ModInspector Selected = null;
 
         List<string> Log = new List<string>();
 
@@ -40,15 +42,24 @@ namespace BingusDebugger
             ASMInfo,
         }
 
+        public enum PlayerImportance
+        {
+            MasterClient,
+            AACreator, // N/A
+            FingerPainter,
+            Illustrator,
+            ForestGuide, // N/A
+            Developer,
+            AdminBadge,
+            Modder,
+        }
+
         private Quaternion lastHeadQuat = Quaternion.identity;
 
         bool desync = false;
         int desyncFrames = 0;
 
         bool steam = false;
-
-        bool init = false;
-        bool visible = true;
 
         public void Start()
         {
@@ -57,14 +68,14 @@ namespace BingusDebugger
         }
 
         public void GorillaInitialize() {
-            init = true;
+            initialized = true;
 
             Application.logMessageReceived += AddLogMessage;
             steam = PlayFabAuthenticator.instance.platform.PlatformTag.ToUpper().Contains("STEAM");
 
             foreach (PluginInfo Mod in BepInEx.Bootstrap.Chainloader.PluginInfos.Values)
             {
-                ModInfo mi = new ModInfo(
+                ModInspector mi = new ModInspector(
                     Mod.Metadata.Name,
                     Mod.Metadata.Version.ToString(),
                     Mod.Metadata.GUID,
@@ -108,9 +119,6 @@ namespace BingusDebugger
                 Log.RemoveAt(0);
         }
 
-        public void OnEnable() => visible = true;
-        public void OnDisable() => visible = false;
-
         private static VRRig PlayerRig(NetPlayer p) =>
             GorillaGameManager.instance.FindPlayerVRRig(p);
 
@@ -129,8 +137,13 @@ namespace BingusDebugger
 
         private ModInspectorMode modinspMode = ModInspectorMode.ModInfo;
 
+        private int selectedPlayerIndex = 0;
+
+        public bool initialized = false;
+
         void Update()
         {
+            if (!initialized) return;
             if (Null(DebugCanvasObject) || Null(DebugCanvasText) || Null(DebugCanvasTextObject))
             {
                 DebugCanvasObject = GameObject.Find("Player Objects/Player VR Controller/GorillaPlayer/TurnParent/Main Camera/DebugCanvas");
@@ -140,10 +153,8 @@ namespace BingusDebugger
                 DebugCanvasText = DebugCanvasTextObject.GetComponent<TMP_Text>();
             }
 
-            DebugCanvasObject?.SetActive(visible);
-            DebugCanvasTextObject?.SetActive(visible);
-
-            if (!init || !visible) return;
+            DebugCanvasObject?.SetActive(true);
+            DebugCanvasTextObject?.SetActive(true);
 
             if (NetworkSystem.Instance.InRoom && Quaternion.Angle(PlayerRig(NetworkSystem.Instance.MasterClient).headMesh.transform.rotation, lastHeadQuat) <= 0.01f)
                 desyncFrames++;
@@ -159,6 +170,17 @@ namespace BingusDebugger
 
             StringBuilder DebugText = new StringBuilder();
 
+            if (steam)
+            {
+                lJoystickAxis = SteamVR_Actions.gorillaTag_LeftJoystick2DAxis.axis;
+                rJoystickAxis = SteamVR_Actions.gorillaTag_RightJoystick2DAxis.axis;
+            }
+            else
+            {
+                lJoystickAxis = ControllerInputPoller.Primary2DAxis(lNode);
+                rJoystickAxis = ControllerInputPoller.Primary2DAxis(rNode);
+            }
+
             switch (display)
             {
                 case HUDDisplayType.Lobby:
@@ -173,28 +195,78 @@ namespace BingusDebugger
                     string FPS = $"{fpsF} </color=grey>fps</color>";
                     DebugText.Append($"{FPS} | {Speed}\n");
 
+                    if (desync)
+                        DebugText.Append("<color=red>DESYNC</color>  ");
+
+                    if (fpsF < 60)
+                        DebugText.Append("<color=red>LOW FPS</color>  ");
+
+                    if (NetworkSystem.Instance.InRoom && NetworkSystem.Instance.IsMasterClient)
+                        DebugText.Append("<color=grey>MASTER</color>  ");
+
                     break;
                 case HUDDisplayType.PlayerList:
                     if (!PhotonNetwork.InRoom)
                     {
-                        DebugText.AppendLine("<color=red>NOT CONNECTED TO A ROOM</color>");
+                        DebugText.AppendLine("<color=grey>NOT CONNECTED TO A ROOM</color>");
                     } else
                     {
-                        int width = 30;
-                        int playersPerPage = 2;
-                        int players = 0;
-
-                        foreach (NetPlayer player in NetworkSystem.Instance.AllNetPlayers)
+                        if ((lJoystickAxis.y > 0.9f && xInRange(lJoystickAxis.x)) && pausePageMoveUntil == 0)
                         {
-                            players++;
-                            if (player == NetworkSystem.Instance.LocalPlayer) continue;
-                            if (players % playersPerPage == 0 && players < NetworkSystem.Instance.RoomPlayerCount)
-                                DebugText.Append($"{PlayerList.MakeSpaces(PlayerList.GetPlayerString(player), width / 2)}  ");
-                            else
-                                DebugText.Append($"{PlayerList.MakeSpaces(PlayerList.GetPlayerString(player), width / 2)}\n");
+                            pausePageMoveUntil = 15;
+                            selectedPlayerIndex++;
                         }
+                        else if ((lJoystickAxis.y < -0.9f && xInRange(lJoystickAxis.x)) && pausePageMoveUntil == 0)
+                        {
+                            pausePageMoveUntil = 15;
+                            selectedPlayerIndex--;
+                        }
+
+                        NetPlayer player = NetworkSystem.Instance.AllNetPlayers[selectedPlayerIndex];
+
+                        if (player == null | !player.InRoom())
+                        {
+                            if (selectedPlayerIndex >= NetworkSystem.Instance.AllNetPlayers.Count())
+                            {
+                                selectedPlayerIndex = 0;
+                            }
+                            else if (selectedPlayerIndex < 0)
+                            {
+                                selectedPlayerIndex = NetworkSystem.Instance.AllNetPlayers.Count() - 1;
+                            }
+                            else
+                            {
+                                Debug.LogWarning($"[BGDEBUG]: Attempted to grab player at index {selectedPlayerIndex}, player count is {NetworkSystem.Instance.AllNetPlayers.Count()}.");
+                                selectedPlayerIndex = 0;
+                            }
+                        }
+
+                        VRRig rig = GetRigFromPlayer(player);
+                        string hexCode = ColorUtility.ToHtmlStringRGB(rig.playerColor);
+                        string specialStuff = ImportanceToString(GetPlayerImportances(player), 30);
+
+                        // LOUDNESS BAR
+                        // -------- XX% (segmented in 8 pieces)
+                        // >>------ XX% (loudness indicated by green & bold > symbols
+                        // XX% is percentage of max volume
+                        StringBuilder loudnessIndicator = new StringBuilder("--------");
+
+                        for (int i = 0; i < (rig.SpeakingLoudness) * (i + 1); i++) {
+                            loudnessIndicator.Remove(i, 1);
+                            string c = ">";
+                            loudnessIndicator.Insert(i, $"<color=green>{c}</color>");
+                        }
+
+                        loudnessIndicator.Insert(0, "<color=red>");
+                        loudnessIndicator.Append("</color>");
+                        // ik real weird looking lmao
+                        
+                        DebugText.AppendLine($"<color=#{hexCode}>██ {player.NickName}</color>  {loudnessIndicator} <color=grey>{Mathf.FloorToInt(rig.SpeakingLoudness * 100)}%</color>");
+                        DebugText.AppendLine($"<color=grey>Platform: {GetPlatformStringOfPlayer(player)}</color>");
+
+                        DebugText.Append(specialStuff);
                     }
-                    
+
                     break;
                 case HUDDisplayType.Log:
                     foreach (string log in Log)
@@ -217,11 +289,6 @@ namespace BingusDebugger
                         int j = Mods.IndexOf(Selected) - 1;
                         Selected = (j < 0) ? Mods[Mods.Count - 1] : Mods[j];
                     }
-
-                    if (steam)
-                        lJoystickAxis = SteamVR_Actions.gorillaTag_LeftJoystick2DAxis.axis;
-                    else
-                        lJoystickAxis = ControllerInputPoller.Primary2DAxis(lNode);
 
                     if ((lJoystickAxis.y > 0.9f && xInRange(lJoystickAxis.x)) && pausePageMoveUntil == 0)
                     {
@@ -250,14 +317,15 @@ namespace BingusDebugger
                     break;
             }
 
-            if (desync)
-                DebugText.Append("<color=red>DESYNC</color>  ");
-
-            if (fpsF < 60)
-                DebugText.Append("<color=red>LOW FPS</color>  ");
-
-            if (NetworkSystem.Instance.InRoom && NetworkSystem.Instance.IsMasterClient)
-                DebugText.Append("<color=grey>MASTER</color>  ");
+            // make highlighted player's name green cuz its cool looking
+            if (PhotonNetwork.InRoom)
+            {
+                foreach (NetPlayer p in NetworkSystem.Instance.AllNetPlayers)
+                    if ((p == NetworkSystem.Instance.AllNetPlayers[selectedPlayerIndex]) && display == HUDDisplayType.PlayerList)
+                        GetRigFromPlayer(p).SetNameTagText($"<color=green>{p.NickName}</color>");
+                    else
+                        GetRigFromPlayer(p).SetNameTagText(p.NickName);
+            }
 
             DebugText.Append("\n");
 
@@ -267,11 +335,6 @@ namespace BingusDebugger
             if (ControllerInputPoller.instance.leftControllerPrimaryButton && pausePageMoveUntil == 0)
             {
                 pausePageMoveUntil = 10;
-
-                if (steam)
-                    rJoystickAxis = SteamVR_Actions.gorillaTag_RightJoystick2DAxis.axis;
-                else
-                    rJoystickAxis = ControllerInputPoller.Primary2DAxis(rNode);
 
                 if (rJoystickAxis.x > 0.9f && yInRange(rJoystickAxis.y))
                     display = display.EnumNext();
@@ -284,5 +347,86 @@ namespace BingusDebugger
 
         private bool yInRange(float y) => (y < 0.25 && y > -0.25);
         private bool xInRange(float x) => (x < 0.25 && x > -0.25);
+
+        private VRRig GetRigFromPlayer(NetPlayer player) => GorillaGameManager.instance.FindPlayerVRRig(player);
+        private List<PlayerImportance> GetPlayerImportances(NetPlayer player)
+        {
+            List<PlayerImportance> importances = new List<PlayerImportance>();
+            VRRig rig = GetRigFromPlayer(player);
+
+            if (player == NetworkSystem.Instance.MasterClient)
+                importances.Add(PlayerImportance.MasterClient);
+            if (rig.concatStringOfCosmeticsAllowed.Contains("LBADE."))
+                importances.Add(PlayerImportance.FingerPainter);
+            if (rig.concatStringOfCosmeticsAllowed.Contains("LBAGS."))
+                importances.Add(PlayerImportance.Illustrator);
+            if (rig.concatStringOfCosmeticsAllowed.Contains("LBAAD."))
+                importances.Add(PlayerImportance.AdminBadge);
+            if (rig.concatStringOfCosmeticsAllowed.Contains("LBAAK."))
+                importances.Add(PlayerImportance.Developer);
+            if (rig.Creator.GetPlayerRef().CustomProperties.Count > 1)
+                importances.Add(PlayerImportance.Modder);
+
+            return importances;
+        }
+
+        private string ImportanceToString(List<PlayerImportance> importances, int maxCharPerLine = 30)
+        {
+            StringBuilder sb = new StringBuilder();
+            string thisLine = "";
+
+            foreach (PlayerImportance pi in importances)
+            {
+                string rawInfo = pi.ToString().ToUpper();
+                string addition = "";
+
+                if (rawInfo == "MASTERCLIENT")
+                    addition = "<color=grey>MASTER</color>";
+                else if (rawInfo == "AACREATOR")
+                    addition = "<color=purple>AAC</color>";
+                else if (rawInfo == "FINGERPAINTER")
+                    addition = "<color=cyan>FP</color>";
+                else if (rawInfo == "ILLUSTRATOR")
+                    addition = "<color=orange>ILLST</color>";
+                else if (rawInfo == "FORESTGUIDE")
+                    addition = "<color=green>GUIDE</color>";
+                else if (rawInfo == "DEVELOPER")
+                    addition = "<color=red>AA</color>";
+                else if (rawInfo == "ADMINBADGE")
+                    addition = "<color=white>ADMIN</color>";
+                else if (rawInfo == "MODDER")
+                    addition = "<color=purple>MODDER</color>";
+
+                if (thisLine.Count() + addition.Count() > maxCharPerLine)
+                {
+                    sb.AppendLine(thisLine[..(thisLine.Count() - 2)]);
+                    thisLine = addition + ", ";
+                }
+                else
+                {
+                    thisLine += addition + ", ";
+                }
+            }
+            if (thisLine != "")
+                sb.AppendLine(thisLine[..(thisLine.Count() - 2)]);
+
+            return sb.ToString();
+        }
+
+        private string GetPlatformStringOfPlayer(NetPlayer player)
+        {
+            VRRig rig = GetRigFromPlayer(player);
+            string concatStringOfCosmeticsAllowed = rig.concatStringOfCosmeticsAllowed;
+            string result;
+
+            if (concatStringOfCosmeticsAllowed.Contains("S. FIRST LOGIN"))
+                result = "<color=#2a475e>SteamVR</color>";
+            else if (concatStringOfCosmeticsAllowed.Contains("FIRST LOGIN") | rig.Creator.GetPlayerRef().CustomProperties.Count > 1)
+                result = "<color=#0059FF>Oculus</color>";
+            else
+                result = "<color=#0081FB>Meta</color>";
+
+            return result;
+        }
     }
 }

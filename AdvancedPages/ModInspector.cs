@@ -1,10 +1,9 @@
 ﻿using System.Reflection;
 using System.Text;
-using BingusDebugger;
 
-namespace BingusDebugger
+namespace BingusDebugger.AdvancedPages
 {
-    public class ModInfo
+    public class ModInspector
     {
         public string Name;
         public string Version;
@@ -66,7 +65,7 @@ namespace BingusDebugger
             return sb.ToString();
         }
 
-        public ModInfo(string n, string v, string guid, Assembly src)
+        public ModInspector(string n, string v, string guid, Assembly src)
         {
             Name = n;
             Version = v;

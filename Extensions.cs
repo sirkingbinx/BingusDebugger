@@ -23,5 +23,10 @@ namespace BingusDebugger
             int j = Array.IndexOf<T>(Arr, src) - 1;
             return (j < 0) ? Arr[0] : Arr[j];
         }
+
+        public static string ColorizeBool(this bool src)
+        {
+            return (bool)((object)src) ? "<color=green>true</color>" : "<color=red>false</color>";
+        }
     }
 }
