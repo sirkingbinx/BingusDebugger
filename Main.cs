@@ -16,7 +16,7 @@ using Valve.VR;
 
 namespace BingusDebugger
 {
-    [BepInPlugin("bingus.debugger", "BingusDebugger", "1.2.0")]
+    [BepInPlugin("bingus.debugger", "BingusDebugger", "1.3.0")]
     public class Plugin : BaseUnityPlugin
     {
         GameObject DebugCanvasObject = null;
@@ -149,8 +149,8 @@ namespace BingusDebugger
                 DebugCanvasObject = GameObject.Find("Player Objects/Player VR Controller/GorillaPlayer/TurnParent/Main Camera/DebugCanvas");
                 DebugCanvasObject.GetComponent<DebugHudStats>().Destroy();
 
-                DebugCanvasTextObject = GameObject.Find("Player Objects/Player VR Controller/GorillaPlayer/TurnParent/Main Camera/DebugCanvas/Text (TMP)");
-                DebugCanvasText = DebugCanvasTextObject.GetComponent<TMP_Text>();
+                DebugCanvasTextObject = GameObject.Find("Player Objects/Player VR Controller/GorillaPlayer/TurnParent/Main Camera/DebugCanvas/ScalingText (TMP)");
+                DebugCanvasText = DebugCanvasTextObject.GetComponent<TextMeshPro>();
             }
 
             DebugCanvasObject?.SetActive(true);
